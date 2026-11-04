@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+pypdf
+sentence-transformers
+chromadb
+google-genai
+rank-bm25==0.2.2
+beautifulsoup4
+supabase
