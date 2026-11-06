@@ -31,6 +31,8 @@ def health():
 
 @app.post("/chat")
 def chat(payload: ChatRequest):
+
+    start = time.time()
     question = payload.message.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Pertanyaan tidak boleh kosong")
@@ -38,6 +40,8 @@ def chat(payload: ChatRequest):
         t1 = time.time()
         contexts = retriever.hybrid_retrieve(question,top_k=4)
         print(f"Retrieval: {time.time() - t1:.2f}s")
+
+        t2 = time.time()
         answer = generate_answer(question, contexts)
         print(f"Generation: {time.time() - t2:.2f}s")
 
