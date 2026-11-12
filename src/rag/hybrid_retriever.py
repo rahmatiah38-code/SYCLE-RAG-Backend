@@ -2,7 +2,7 @@ import re
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
-from database import get_supabase
+from supabase_configuration.database import get_supabase
 
 
 STOPWORDS = set("""

@@ -52,8 +52,7 @@ def load_exel_to_supabase(records: list[dict]) -> int:
 
 def get_evidence_registry_pdf():
     """
-    Mengambil evidence_registry yang verification_scope
-    mengandung kata PDF.
+    Mengambil evidence_registry yang verification_scope PDF.
     """
 
     supabase = get_supabase()
@@ -71,8 +70,7 @@ def get_evidence_registry_pdf():
 
 def get_evidence_registry_web():
     """
-    Mengambil evidence_registry yang verification_scope
-    tidak mengandung kata PDF.
+    Mengambil evidence_registry yang verification_scope bukan PDF.
     """
 
     supabase = get_supabase()
