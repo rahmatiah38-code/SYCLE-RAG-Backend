@@ -3,7 +3,7 @@ name: Evidence Pipeline (Google Drive -> Supabase)
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 1 * * *"     # 01:00 UTC = 08:00 WIB
+    - cron: "0 1 15 * *"     # Tanggal 15 tiap bulan, 08:00 WIB
 
 jobs:
   load-evidence:

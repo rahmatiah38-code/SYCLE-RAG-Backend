@@ -3,8 +3,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from src.rag.hybrid_retriever import HybridRetriever
-from rag.generation import generate_answer
-from rag.refleksi_refactor import refleksi_tracker
+from src.rag.generation import generate_answer
+from src.rag.refleksi_refactor import refleksi_tracker
 
 app = FastAPI(title="Climate Change RAG API")
 retriever = HybridRetriever()
