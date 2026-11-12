@@ -1,10 +1,30 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-pypdf
-sentence-transformers
-chromadb
-google-genai
-rank-bm25==0.2.2
-beautifulsoup4
+# Database Supabase
 supabase
+
+# Environment variables
+python-dotenv
+
+# Web scraping
+requests
+beautifulsoup4
+
+# PDF processing
+PyMuPDF
+
+# Data processing
+pandas
+numpy
+
+# Machine Learning / Embedding
+sentence-transformers
+torch
+
+# Vector Database
+chromadb
+requests
+rank-bm25
+
+# Google Drive
+google-api-python-client
+google-auth
+openpyxl

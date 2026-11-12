@@ -1,6 +1,36 @@
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 __pycache__/
 *.pyc
 chroma_db/
+data/*
+!data/.gitkeep
+
+# Kredensial Google (service account)
+service-account*.json
+*-credentials.json
+credentials.json
+*.pem
+*.key
+
+# Cache & tooling Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+.ipynb_checkpoints/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Log dan file sementara
+*.log
+tmp/
