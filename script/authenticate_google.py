@@ -20,12 +20,49 @@ GSHEET = os.getenv("GSHEET_MIME")
 XLSX = os.getenv("XLSX_MIME")
 FILE_ID =os.getenv("GDRIVE_FILE_ID")
 
-# Baca Credencial goole, service-account.json
-cred_filename = os.getenv("SA_JSON_PATH")
-JSON_PATH = BASE_DIR / cred_filename
+
+def list_drive_files(folder_id: str):
+    sa_info = load_sa_info()
+
+    creds = service_account.Credentials.from_service_account_info(
+        sa_info, scopes=SCOPES
+    )
+
+    drive = build(
+        "drive",
+        "v3",
+        credentials=creds,
+        cache_discovery=False
+    )
+
+    results = []
+    page_token = None
+
+    while True:
+        response = drive.files().list(
+            q=f"'{folder_id}' in parents and trashed = false",
+            fields=(
+                "nextPageToken, files("
+                "id, name, mimeType, webViewLink, webContentLink"
+                ")"
+            ),
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
+            pageToken=page_token
+        ).execute()
+
+        results.extend(response.get("files", []))
+
+        page_token = response.get("nextPageToken")
+
+        if not page_token:
+            break
+
+    return results
 
 
-def download_excel(file_id: str, sa_info: dict) -> bytes:
+def download_excel(file_id: str) -> bytes:
+    sa_info = load_sa_info()
     creds = service_account.Credentials.from_service_account_info(
         sa_info, scopes=SCOPES
     )
@@ -50,7 +87,7 @@ def download_excel(file_id: str, sa_info: dict) -> bytes:
         _, done = downloader.next_chunk()
     return buffer.getvalue()
 
-def read_and_clean(content: bytes) -> list[dict]:
+def read_and_clean(content: bytes, results) -> list[dict]:
     sheet = os.environ.get("SHEET_NAME") or 0
     raw = pd.read_excel(io.BytesIO(content), sheet_name=sheet, engine="openpyxl")
     log.info("Terbaca %d baris, %d kolom dari Excel", len(raw), len(raw.columns))
@@ -87,7 +124,7 @@ def read_and_clean(content: bytes) -> list[dict]:
         "Full Text Terindex": "index_full_text",
     })
 
-    # Buat adjustment beberapa isi kolom (pdf_url dan index_full_text)
+    # Buat adjustment beberapa isi kolom (index_full_text dan pdf_url)
     col = registry["index_full_text"].astype("string").str.strip().str.lower()
     col = col.replace("", pd.NA)
     unknown_vals = set(col.dropna().unique()) - set(FULLTEXT_MAP)
@@ -98,4 +135,20 @@ def read_and_clean(content: bytes) -> list[dict]:
     # to_json mengubah NaN -> null dan Timestamp -> string ISO,
     # sehingga aman dikirim sebagai JSON ke Supabase.
     records = json.loads(registry.to_json(orient="records", date_format="iso"))
+    for file in records:
+        for pdf in results:
+            if pdf["name"].split("_")[0] == file["source_code"]:
+                file["pdf_url"] = pdf["webViewLink"]
+                break
     return records
+
+def load_sa_info() -> dict:
+    """GitHub Actions: GDRIVE_SA_JSON. Lokal: SA_JSON_PATH."""
+    raw = os.getenv("GDRIVE_SA_JSON")
+    if raw:
+        return json.loads(raw)
+
+    path = os.getenv("SA_JSON_PATH")
+    if path:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)

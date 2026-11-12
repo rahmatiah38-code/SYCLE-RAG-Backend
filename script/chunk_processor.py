@@ -4,12 +4,12 @@ import hashlib
 from datetime import datetime, timezone
 from typing import Any
 
-from database import get_supabase
+from supabase_configuration.database import get_supabase
 from sentence_transformers import SentenceTransformer
 
 TABLE = os.getenv("EVIDENCE_CHUNK_TABLE")
-CHUNK_MAX_CHARS = 500
-CHUNK_OVERLAP_CHARS = 100
+CHUNK_MAX_CHARS = int(os.getenv("CHUNK_NUM"))
+CHUNK_OVERLAP_CHARS = int(os.getenv("CHUNK_OVERLAP"))
 
 # Model ini menghasilkan embedding 384 dimensi,
 # sesuai dengan kolom embedding vector(384) di Supabase.
@@ -148,7 +148,6 @@ def make_checksum(content: str) -> str:
 def build_chunk_records(
     web_documents: list[dict] | None = None,
     pdf_documents: list[dict] | None = None,
-    peran: dict | None = None
 ) -> list[dict]:
     """
     Menggabungkan dokumen WEB dan PDF menjadi records untuk evidence_chunks.
@@ -161,7 +160,6 @@ def build_chunk_records(
     """
     web_documents = web_documents or []
     pdf_documents = pdf_documents or []
-    peran = peran or {}
 
     records = []
 
@@ -172,7 +170,6 @@ def build_chunk_records(
         source_code = doc["source_code"]
         title = get_first_value(doc, "source_title", "title")
         source_url = get_first_value(doc, "source_url", "pdf_url")
-
         chunks = chunk_by_sentence(doc.get("text", ""))
 
         for chunk_index, chunk in enumerate(chunks):
@@ -189,7 +186,7 @@ def build_chunk_records(
                     "source_url": str(source_url)[:1500],
                     "document_date": doc.get("publication_year"),
                     "verified_by": doc.get("verified_by"),
-                    "peran": str(doc.get("peran", peran.get(source_code, ""))),
+                    "peran": doc.get("sycle_role"),
                     "source_type": "web",
                     "chunk_index": chunk_index,
                     "retrieved_at": doc.get("retrieved_at"),
@@ -222,7 +219,7 @@ def build_chunk_records(
                     "source_url": str(source_url)[:1500],
                     "document_date": doc.get("publication_year"),
                     "verified_by": doc.get("verified_by"),
-                    "peran": str(peran.get(source_code, doc.get("peran", ""))),
+                    "peran": doc.get("sycle_role"),
                     "source_type": "pdf",
                     "page": page_number,
                     "chunk_index": chunk_index,
@@ -340,8 +337,7 @@ def save_chunks_to_supabase(
 
 def process_and_save_chunks(
     web_documents: list[dict] | None = None,
-    pdf_documents: list[dict] | None = None,
-    peran: dict | None = None
+    pdf_documents: list[dict] | None = None
 ) -> list[dict]:
     """
     Pipeline:
@@ -349,8 +345,7 @@ def process_and_save_chunks(
     """
     records = build_chunk_records(
         web_documents=web_documents,
-        pdf_documents=pdf_documents,
-        peran=peran
+        pdf_documents=pdf_documents
     )
 
     records = generate_embeddings(records)
@@ -358,11 +353,3 @@ def process_and_save_chunks(
     save_chunks_to_supabase(records)
 
     return records
-
-
-if __name__ == "__main__":
-    print(
-        "Modul chunk_processor.py siap digunakan. "
-        "Panggil process_and_save_chunks() dari main.py "
-        "dengan web_documents dan pdf_documents."
-    )

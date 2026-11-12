@@ -65,6 +65,7 @@ def get_web_documents():
 
     # Mengambil data registry kategori WEB
     source_web = get_evidence_registry_web()
+    print("Jumlah sumber WEB:", len(source_web))
 
     web_documents = []
 
