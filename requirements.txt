@@ -28,3 +28,11 @@ rank-bm25
 google-api-python-client
 google-auth
 openpyxl
+
+fastapi
+uvicorn[standard]
+
+pypdf
+google-genai
+rank-bm25==0.2.2
+
