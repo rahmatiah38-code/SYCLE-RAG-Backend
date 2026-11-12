@@ -17,10 +17,8 @@ numpy
 
 # Machine Learning / Embedding
 sentence-transformers
-torch
 
 # Vector Database
-chromadb
 requests
 rank-bm25
 
