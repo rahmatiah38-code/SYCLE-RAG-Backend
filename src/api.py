@@ -69,7 +69,8 @@ def chat(payload: RefleksiRequest):
     try:
         contexts = retriever.hybrid_retrieve(
             query_catatan(catatan),
-            top_k=4
+            top_k=4,
+            where="Tracker dan Personalisasi"
         )
 
         refleksi = refleksi_tracker(catatan.model_dump(), contexts)

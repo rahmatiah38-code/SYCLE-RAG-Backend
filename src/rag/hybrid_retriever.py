@@ -1,9 +1,11 @@
+import os
 import re
 from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
 from supabase_configuration.database import get_supabase
 
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME")
 
 STOPWORDS = set("""
 yang dan di ke dari untuk pada dengan ini itu atau apa apakah bagaimana
@@ -24,10 +26,9 @@ class HybridRetriever:
     def __init__(self):
 
         self.supabase = get_supabase()
+        model_name: str = EMBEDDING_MODEL_NAME
 
-        self.embedding_model = SentenceTransformer(
-            "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-        )
+        self.embedding_model = SentenceTransformer(model_name)
 
         self.top_k = 4
         self.candidate_k = 12
