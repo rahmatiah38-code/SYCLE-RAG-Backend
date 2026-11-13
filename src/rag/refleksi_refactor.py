@@ -129,7 +129,11 @@ REFLEKSI_DISCLAIMER = (
 )
 
 REFLEKSI_UNAVAILABLE = "Refleksi AI belum tersedia saat ini. Ringkasan tanpa AI tetap bisa kamu simpan."
-REFLEKSI_REJECTED = "Refleksi AI tidak dapat ditampilkan saat ini. Ringkasan tanpa AI tetap bisa kamu simpan."
+REFLEKSI_REJECTED = (
+    "Belum ada sumber tepercaya di SYCLE yang membahas keluhanmu ini, jadi Refleksi AI belum bisa "
+    "memberi saran. Ringkasan tanpa AI tetap bisa kamu simpan. Jika keluhanmu berlanjut atau "
+    "membuatmu khawatir, konsultasikan dengan tenaga kesehatan."
+)
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,6 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.getenv("SUPABASE_SECRET_KEY")
 
 TABLE = os.getenv("EVIDENCE_TABLE")
-CONFLIC = os.getenv("ON_CONFLIC") or None
 PROJECT_NAME = os.getenv("PROJECT_NAME")
 log = logging.getLogger("database.py")
 

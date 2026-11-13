@@ -74,8 +74,7 @@ def chat(payload: RefleksiRequest):
         )
 
         refleksi = refleksi_tracker(catatan.model_dump(), contexts)
-        print("HASIL REFLEKSI : ", refleksi)
-
+        
         return {
             **refleksi,
             "relatedArticles": artikel_terkait(contexts)

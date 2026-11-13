@@ -26,6 +26,7 @@ jobs:
           # Rahasia -> GitHub Secrets
           GDRIVE_SA_JSON: ${{ secrets.GDRIVE_SA_JSON }}
           GDRIVE_FILE_ID: ${{ secrets.GDRIVE_FILE_ID }}
+          GDRIVE_FOLDER_PDF_ID: ${{ secrets.GDRIVE_FILE_ID }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           # Bukan rahasia
@@ -34,7 +35,8 @@ jobs:
           SCOPES: https://www.googleapis.com/auth/drive.readonly
           EVIDENCE_TABLE: evidence_registry
           EVIDENCE_CHUNK_TABLE: evidence_chunks
-          ON_CONFLICT: source_code
+          CHUNK_NUM: 500
+          CHUNK_OVERLAP: 100
           PROJECT_NAME: Sycle_LCH_PI
           # Script ini membuat embedding
           EMBEDDING_MODEL_NAME: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
