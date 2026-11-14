@@ -13,7 +13,7 @@ retriever = HybridRetriever()
 # Jika hanya dipanggil melalui Next.js proxy, CORS browser langsung tidak wajib.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:4000", "http://127.0.0.1:3000", "https://sycle-eta.vercel.app"],
     allow_credentials=False,
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
