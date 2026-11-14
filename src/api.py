@@ -28,7 +28,7 @@ class ChatRequest(BaseModel):
 def health():
     return {"status": "ok"}
 
-
+ 
 @app.post("/chat")
 def chat(payload: ChatRequest):
     question = payload.message.strip()
