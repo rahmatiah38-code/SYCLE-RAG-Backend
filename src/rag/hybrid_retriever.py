@@ -14,12 +14,48 @@ the of and to in a is for on what how
 """.split())
 
 
+# Istilah dua kata yang harus dibaca sebagai satu istilah, supaya
+# "heat stroke" tidak tercampur dengan "stroke" (stroke otak) di sumber lain.
+PHRASES = [
+    (re.compile(r"\bheat[\s-]?stroke\b"), " heatstroke "),
+    (re.compile(r"\bsengatan panas\b"), " heatstroke "),
+    (re.compile(r"\bserangan panas\b"), " heatstroke "),
+]
+
+
 def tokenize(text):
+    text = text.lower()
+    for pattern, replacement in PHRASES:
+        text = pattern.sub(replacement, text)
     return [
-        t for t in re.findall(r"\b\w+\b", text.lower())
+        t for t in re.findall(r"\b\w+\b", text)
         if t not in STOPWORDS
     ]
 
+def normalize_peran(value):
+    return re.sub(
+        r"\s+",
+        " ",
+        str(value or "").strip().lower().replace(" dan ", " & ")
+    )
+
+def matches_peran(metadata, peran):
+    if not peran:
+        return True
+
+    metadata = metadata or {}
+
+    return (
+        normalize_peran(metadata.get("peran"))
+        == normalize_peran(peran)
+    )
+
+def matches_topik(metadata, topics=None):
+    if not topics:
+        return True
+
+    metadata = metadata or {}
+    return metadata.get("topik") in topics
 
 class HybridRetriever:
 
@@ -27,6 +63,11 @@ class HybridRetriever:
 
         self.supabase = get_supabase()
         model_name: str = EMBEDDING_MODEL_NAME
+
+        # Di server bersama (Railway), torch mengira ada banyak CPU dan membuat
+        # terlalu banyak thread sehingga pencarian jadi sangat lambat. Batasi.
+        import torch
+        torch.set_num_threads(int(os.getenv("TORCH_NUM_THREADS", "2")))
 
         self.embedding_model = SentenceTransformer(model_name)
 
@@ -86,19 +127,29 @@ class HybridRetriever:
 
         print(f"BM25 index: {len(self.records)} chunks")
 
-    def vector_search(self, query, where=None):
+    def vector_search(self, query, where=None, topics=None):
+
+        # Awalan "query: " (format E5) dipakai untuk semua pencarian,
+        # karena chunk disimpan dengan awalan "passage: ".
+        query_text = f"query: {query}"
 
         query_embedding = self.embedding_model.encode(
-            query,
+            query_text,
             normalize_embeddings=True
         ).tolist()
+
+        metadata_filter = {}
+
+        if topics:
+            metadata_filter["topik_any"] = topics
 
         response = self.supabase.rpc(
             "match_evidence_chunks",
             {
                 "query_embedding": query_embedding,
                 "match_count": self.candidate_k,
-                "filter": where or {}
+                "peran": where or None,
+                "filter": metadata_filter
             }
         ).execute()
 
@@ -110,7 +161,15 @@ class HybridRetriever:
             and float(r["distance"]) <= self.max_distance
         ]
 
-    def hybrid_retrieve(self, query, top_k=None, where=None):
+    def hybrid_retrieve(self, query, top_k=None, where=None, topics=None, extra_queries=None):
+        import time
+        started = time.perf_counter()
+        try:
+            return self._hybrid_retrieve(query, top_k, where, topics, extra_queries)
+        finally:
+            print(f"[waktu] pencarian sumber {time.perf_counter() - started:.1f} detik", flush=True)
+
+    def _hybrid_retrieve(self, query, top_k=None, where=None, topics=None, extra_queries=None):
 
         if not query or not query.strip():
             return []
@@ -120,6 +179,35 @@ class HybridRetriever:
         if not self.records:
             return []
 
+        # Pertanyaan asli + versi lain (misalnya terjemahan bahasa Inggris).
+        # Setiap versi dicari sendiri, lalu semua peringkat digabung dengan RRF.
+        queries = [query] + [q for q in (extra_queries or []) if q and q.strip() and q.strip() != query.strip()]
+
+        bm25_lists, vector_lists, distances = [], [], {}
+        for q in queries:
+            ids, rows = self._rank_one(q, where, topics)
+            bm25_lists.append(ids)
+            vector_lists.append([r["id"] for r in rows])
+            for r in rows:
+                d = float(r["distance"])
+                distances[r["id"]] = min(d, distances.get(r["id"], d))
+
+        bm25_ids = bm25_lists[0]
+        vector_ids = vector_lists[0]
+
+        # 3. RRF
+        rrf = {}
+
+        for ranked_ids in bm25_lists + vector_lists:
+            for rank, doc_id in enumerate(ranked_ids, 1):
+                rrf[doc_id] = (
+                    rrf.get(doc_id, 0)
+                    + 1 / (self.rrf_k + rank)
+                )
+
+        return self._build_results(rrf, top_k, bm25_ids, vector_ids, distances)
+
+    def _rank_one(self, query, where=None, topics=None):
         # 1. BM25
         bm25_ids = []
 
@@ -138,36 +226,26 @@ class HybridRetriever:
                 if scores[i] <= 0:
                     continue
 
-                bm25_ids.append(self.records[i]["id"])
+                record = self.records[i]
+
+                # Samakan filter kategori dan peran dengan vector search.
+                if not matches_topik(record.get("metadata"), topics):
+                    continue
+
+                if not matches_peran(record.get("metadata"), where):
+                    continue
+
+                bm25_ids.append(record["id"])
 
                 if len(bm25_ids) >= self.candidate_k:
                     break
 
         # 2. Vector search
-        vector_rows = self.vector_search(query, where)
+        vector_rows = self.vector_search(query, where, topics)
 
-        vector_ids = [r["id"] for r in vector_rows]
+        return bm25_ids, vector_rows
 
-        distances = {
-            r["id"]: float(r["distance"])
-            for r in vector_rows
-        }
-
-        # 3. RRF
-        rrf = {}
-
-        for rank, doc_id in enumerate(bm25_ids, 1):
-            rrf[doc_id] = (
-                rrf.get(doc_id, 0)
-                + 1 / (self.rrf_k + rank)
-            )
-
-        for rank, doc_id in enumerate(vector_ids, 1):
-            rrf[doc_id] = (
-                rrf.get(doc_id, 0)
-                + 1 / (self.rrf_k + rank)
-            )
-
+    def _build_results(self, rrf, top_k, bm25_ids, vector_ids, distances):
         # 4. Gabungkan hasil
         results = []
 

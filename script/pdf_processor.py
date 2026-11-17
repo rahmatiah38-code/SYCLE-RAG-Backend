@@ -2,7 +2,9 @@ import requests
 import fitz
 import re
 
+import os
 from io import BytesIO
+from pathlib import Path
 from datetime import datetime, timezone
 from urllib.parse import urlparse, parse_qs
 
@@ -171,9 +173,35 @@ from datetime import datetime, timezone
 import fitz
 
 
-def get_pdf_documents():
+# PDF cadangan di backend/manual_sources/{kode}.pdf dipakai jika file belum ada
+# di folder Drive. FORCE_FULL_TEXT=SRC-E04,... memperlakukan sumber tersebut
+# sebagai "Full Text" walau kolom registry masih kosong (atas keputusan tim).
+MANUAL_DIR = Path(__file__).resolve().parent.parent / "manual_sources"
+FORCE_FULL_TEXT = {
+    code.strip() for code in os.getenv("FORCE_FULL_TEXT", "").split(",") if code.strip()
+}
+
+
+def load_pdf_bytes(doc):
+    local = MANUAL_DIR / f"{doc.get('source_code')}.pdf"
+    if local.exists():
+        print(f"PDF lokal: {local.name}")
+        return local.read_bytes()
+    if not doc.get("pdf_url"):
+        raise FileNotFoundError("PDF tidak ada di folder Drive maupun manual_sources")
+    return download_google_drive_pdf(doc["pdf_url"])
+
+
+def get_pdf_documents(only_sources=None):
 
     source_pdf = get_evidence_registry_pdf()
+
+    # Opsional: hanya proses kode sumber tertentu (ONLY_SOURCES).
+    if only_sources:
+        source_pdf = [
+            s for s in source_pdf
+            if s.get("source_code") in only_sources
+        ]
 
     pdf_documents = []
 
@@ -184,6 +212,9 @@ def get_pdf_documents():
         # ==================================
         # 1. Pemeriksaan izin indexing
         # ==================================
+
+        if doc.get("source_code") in FORCE_FULL_TEXT:
+            doc["index_full_text"] = True
 
         if not doc.get("index_full_text", False):
 
@@ -196,14 +227,31 @@ def get_pdf_documents():
             continue
 
         # ==================================
+        # 1b. Cadangan: artikel tersimpan sebagai HTML (tanpa PDF)
+        # ==================================
+
+        html_path = MANUAL_DIR / f"{doc.get('source_code')}.html"
+        if html_path.exists() and not (MANUAL_DIR / f"{doc.get('source_code')}.pdf").exists():
+            from script.web_scraper import html_to_text
+
+            text = html_to_text(html_path.read_text(encoding="utf-8", errors="ignore"))
+            text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+            pdf_documents.append({
+                **doc,
+                "page": 1,  # satu dokumen utuh; chunk_processor membutuhkan nomor halaman
+                "text": text,
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            })
+            print(f"OK (HTML lokal {html_path.name}): {doc.get('source_code')} — {len(text)} karakter")
+            continue
+
+        # ==================================
         # 2. Download dan membuka PDF
         # ==================================
 
         try:
 
-            pdf_bytes = download_google_drive_pdf(
-                doc["pdf_url"]
-            )
+            pdf_bytes = load_pdf_bytes(doc)
 
             pdf = fitz.open(
                 stream=pdf_bytes,

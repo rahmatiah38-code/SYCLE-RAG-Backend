@@ -1,0 +1,8 @@
+# File yang tidak ikut diunggah saat deploy dengan `railway up`
+.env
+.env.*
+.venv/
+venv/
+__pycache__/
+*.log
+.DS_Store
